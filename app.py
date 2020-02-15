@@ -11,6 +11,8 @@ import time
 app = Flask(__name__)
 app.config["MONGO_URI"] = "mongodb://localhost:27017/myDatabase" #needs to be changed
 app.config['SECRET_KEY'] = 'secret!'
+app.config['CELERY_BROKER_URL'] = 'amqp://dan_celery:dan_celery@localhost/dan_celery'
+app.config['CELERY_RESULT_BACKEND'] = 'amqp://dan_celery:dan_celery@localhost/dan_celery'
 socketio = SocketIO(app, cors_allowed_origins="*")
 CORS(app, resources={r"/data/*": {"origins": "*"}})
 

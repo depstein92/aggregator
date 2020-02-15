@@ -39,10 +39,9 @@ URL_LIST = [ #move to constants file
 ]
 
 worker = Celery('celery_worker',
-             broker='amqp://dan:dan@localhost:5672/dan_host',
-             backend='amqp',
-             ignore_result=False,
-             CELERY_IGNORE_RESULT=False)
+             broker='amqp://dan_celery:dan_celery@localhost:5672/dan_celery',
+             backend='rpc://',
+             ignore_result=False)
 
 '''
 NOTES:
