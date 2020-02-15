@@ -1,4 +1,4 @@
 
 #!/bin/bash
 
-echo "Starting Server..."
+echo "Starting up Content Aggregator project...."

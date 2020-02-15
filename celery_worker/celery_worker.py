@@ -3,54 +3,75 @@ from celery import Celery
 import requests
 import os
 import json
+import threading
+
+def filter_relevant_users(data=None):
+  if data is None:
+    return []
+
+
+  relevant_data = json.loads(data)["results"]
+  user_data = []
+
+  for user in relevant_data:
+    user_info = {
+      "name" : user["name"],
+      "age" : user["dob"]["age"],
+      "picture": user["picture"]["thumbnail"],
+      "gender" : user["gender"],
+      "location": user["location"]["city"]
+    }
+    user_data.append(user_info)
+
+  return user_data
+
+
+# to start workers: celery -A celery_worker worker --loglevel=debug
 
 URL_LIST = [ #move to constants file
-   'https://spoonacular-recipe-food-nutrition-v1.p.rapidapi.com/recipes/4632/summary',
-   'https://api-football-v1.p.rapidapi.com/v2/predictions/157462',
-   'https://api-basketball.p.rapidapi.com/standings',
-   'https://sportsop-soccer-sports-open-data-v1.p.rapidapi.com/v1/leagues',
-   'https://movie-database-imdb-alternative.p.rapidapi.com/',
-   'https://wft-geo-db.p.rapidapi.com/v1/locale/locales',
-   'https://adsbexchange-com1.p.rapidapi.com/sqk/%7Bsqk%7D/'
-]
-
-URL_LIST_TITLE = [ #move to constants file
-   'Recipes for you to enjoy',
-   'Football facts',
-   'Basketball facts',
-   'Soccer facts',
-   'Suggested movie',
-   'Random city facts',
-   'Flight info around the world'
-]
-
-HEADERS = [ #move to constants file
-    'spoonacular-recipe-food-nutrition-v1.p.rapidapi.com',
-    'api-football-v1.p.rapidapi.com',
-    'api-basketball.p.rapidapi.com',
-    'sportsop-soccer-sports-open-data-v1.p.rapidapi.com',
-    'movie-database-imdb-alternative.p.rapidapi.com',
-    'wft-geo-db.p.rapidapi.com',
-    'adsbexchange-com1.p.rapidapi.com'
+    'https://randomuser.me/api/?results=500',
+    'https://randomuser.me/api/?results=500',
+    'https://randomuser.me/api/?results=500',
+    'https://randomuser.me/api/?results=500',
+    'https://randomuser.me/api/?results=500',
+    'https://randomuser.me/api/?results=500',
+    'https://randomuser.me/api/?results=500'
 ]
 
 worker = Celery('celery_worker',
              broker='amqp://dan:dan@localhost:5672/dan_host',
-             backend='',
-             ignore_result=False)
+             backend='amqp',
+             ignore_result=False,
+             CELERY_IGNORE_RESULT=False)
 
+'''
+NOTES:
+    percentage_complete is incremented by
+    14, because 1/7 of 100 is about 14... blah blah blah
+'''
 
-@worker.task
-def execute_celery_tasks():
+@worker.task(bind=True, ignore_result = False)
+def execute_celery_tasks(self):
     data = []
-    for i, url in enumerate(URL_LIST):
-        headers = {
-          'x-rapidapi-host': HEADERS[i],
-          'x-rapidapi-key': "d06d900824mshf97a044c62f3e56p143b65jsnb65dee23984e"
-        }
-        response = requests.get(url, headers=headers)
-        data.append({
-        'title': URL_LIST_TITLE[i],
-        'data': json.loads(response.text)
-        })
-    return data
+    percent = 0
+    self.update_state(state='STARTING',
+                      meta={'percent': percent,
+                            'status': 'Loading...',
+                            'data': data})
+
+    for url in URL_LIST:
+        res = requests.get(url)
+        user_data = filter_relevant_users(res.text)
+        percent += 14
+        print('percent Complete:', percent)
+        self.update_state(state='PROGRESS',
+                          meta={'percent': percent,
+                                'status': 'Loading...',
+                                'data': data})
+
+    self.update_state(state='FINISHED',
+                      meta={'percent': percent,
+                      'status': 'Loading...',
+                      'data': data})
+
+    return { 'percentage': data }
